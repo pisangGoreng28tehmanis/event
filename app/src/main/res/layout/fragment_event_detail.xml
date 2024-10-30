@@ -1,3 +1,7 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -105,3 +109,16 @@
             android:padding="12dp"/>
     </LinearLayout>
 </ScrollView>
+
+<com.google.android.material.floatingactionbutton.FloatingActionButton
+android:id="@+id/fab_favorite"
+android:layout_width="wrap_content"
+android:layout_height="wrap_content"
+android:layout_gravity="end|top"
+android:layout_margin="16dp"
+android:layout_marginTop="180dp"
+    android:src="@drawable/baseline_favorite_border_24"
+    android:contentDescription="Tombol Favorit"
+    android:tint="@android:color/white"
+    android:backgroundTint="@color/white" />
+</FrameLayout>
