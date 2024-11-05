@@ -1,6 +1,8 @@
 package sinaga.modern.event.ui
 
 import ListEventsItem
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -12,14 +14,21 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModelProvider
 import com.bumptech.glide.Glide
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import sinaga.modern.event.R
+import sinaga.modern.event.data.local.FavoriteEvent
+import sinaga.modern.event.data.FavoriteEventRepository
+import sinaga.modern.event.data.local.FavoriteEventRoomDatabase
+import sinaga.modern.event.data.retrofit.ApiConfig
+import sinaga.modern.event.data.Result
+import sinaga.modern.event.utils.AppExecutors
 
 class EventDetailFragment : Fragment() {
 
     private lateinit var event: ListEventsItem
-    private var isFavorite: Boolean = false // Tambahkan variabel ini
+    private var isFavorite: Boolean = false
 
     private lateinit var eventImage: ImageView
     private lateinit var eventName: TextView
@@ -33,13 +42,15 @@ class EventDetailFragment : Fragment() {
     private lateinit var openLinkButton: Button
     private lateinit var fabFavorite: FloatingActionButton
 
+    private lateinit var favoriteRepository: FavoriteEventRepository
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_event_detail, container, false)
 
-        // Inisialisasi komponen
+        // Inisialisasi komponen UI
         eventImage = view.findViewById(R.id.image_event)
         eventName = view.findViewById(R.id.text_event_name)
         eventDescription = view.findViewById(R.id.text_event_description)
@@ -52,15 +63,18 @@ class EventDetailFragment : Fragment() {
         openLinkButton = view.findViewById(R.id.button_open_link)
         fabFavorite = view.findViewById(R.id.fab_favorite)
 
-        // Atur listener untuk FAB
-        fabFavorite.setOnClickListener {
-            isFavorite = !isFavorite
-            updateFavoriteIcon()
-        }
+        // Inisialisasi FavoriteEventRepository
+        favoriteRepository = FavoriteEventRepository.getInstance(
+            apiService = ApiConfig.getApiService(),
+            favDao = FavoriteEventRoomDatabase.getDatabase(requireContext()).favoriteEventDao(),
+            appExecutors = AppExecutors()
+        )
 
         // Ambil data event dari arguments
         val event: ListEventsItem? = arguments?.getParcelable("event_details")
         event?.let {
+            this.event = it
+
             // Tampilkan detail event
             Glide.with(requireContext())
                 .load(it.mediaCover)
@@ -88,12 +102,37 @@ class EventDetailFragment : Fragment() {
                     startActivity(intent)
                 }
             }
+
+            // Cek status favorit di database
+            checkFavoriteStatus()
+        }
+
+        // Atur listener untuk FAB favorit
+        fabFavorite.setOnClickListener {
+            isFavorite = !isFavorite
+            updateFavoriteIcon()
+
+            // Launch a coroutine to toggle favorite status
+            viewLifecycleOwner.lifecycleScope.launch {
+                toggleFavoriteStatus()
+            }
         }
 
         return view
     }
 
-    // Fungsi untuk mengupdate ikon favorit
+    // Fungsi untuk mengecek apakah event saat ini adalah favorit
+    private fun checkFavoriteStatus() {
+        favoriteRepository.getAllFavoriteEvents().observe(viewLifecycleOwner) { result ->
+            if (result is Result.Success) {
+                val favoriteEvents = result.data
+                isFavorite = favoriteEvents.any { it.id == event.id.toString() }
+                updateFavoriteIcon()
+            }
+        }
+    }
+
+    // Fungsi untuk memperbarui ikon favorit
     private fun updateFavoriteIcon() {
         val iconRes = if (isFavorite) {
             R.drawable.baseline_favorite_24 // Ikon hati terisi
@@ -101,6 +140,30 @@ class EventDetailFragment : Fragment() {
             R.drawable.baseline_favorite_border_24 // Ikon hati kosong
         }
         fabFavorite.setImageResource(iconRes)
+    }
+
+    // Fungsi untuk menambah atau menghapus favorit dari database
+    private suspend fun toggleFavoriteStatus() {
+        val favoriteEvent = FavoriteEvent(
+            id = event.id.toString(),
+            name = event.name ?: "",
+            mediaCover = event.mediaCover ?: "",
+            description = event.description ?: "",
+            cityName = event.cityName ?: "",
+            ownerName = event.ownerName ?: "",
+            beginTime = event.beginTime ?: "",
+            endTime = event.endTime ?: "",
+            quota = event.quota ?: 0,
+            registrants = event.registrants ?: 0,
+            link = event.link ?: ""
+
+        )
+
+        if (isFavorite) {
+            favoriteRepository.addFavorite(favoriteEvent)
+        } else {
+            favoriteRepository.removeFavorite(favoriteEvent)
+        }
     }
 
     companion object {

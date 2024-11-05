@@ -14,5 +14,9 @@
     <string name="title_dashboard">Dashboard</string>
     <string name="title_notifications">Notifications</string>
     <string name="home">Home</string>
+    <string name="dark_mode">Dark Mode</string>
     <string name="event_image">Your Event Image</string>
+    <string name="favorite_events">favorite events</string>
+    <string name="favorite_events2">Favorite Events</string>
+    <string name="settings">Settings</string>
 </resources>
